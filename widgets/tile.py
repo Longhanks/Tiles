@@ -22,45 +22,68 @@
 # SOFTWARE.
 
 from PyQt5.QtWidgets import QLabel
-from PyQt5.QtGui import QColor, QPixmap
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import QPropertyAnimation, QRect, pyqtSignal
 
 
 class Tile(QLabel):
+    moved = pyqtSignal()
+
     def __init__(self, parent=None):
         super(Tile, self).__init__(parent)
         self.isEmpty = False
-        self.neighbors = []
-        self.currentPixmapName = None
-        self.mw = self.parent().parent()
+        self.perfectPos = None
+        self.hasPerfectPos = True
+        self.moveEnabled = False
 
     def mousePressEvent(self, event):
-        if self.parent().parent().pixmaps is None:
+        if not self.moveEnabled:
             return
         if self.switch():
-            self.mw.moves += 1
-            self.mw.labelMoves.setText(str(self.mw.moves))
-            self.mw.checkIfWon()
+            self.moved.emit()
 
-    def switch(self):
+    def switch(self, anim=True):
         var = False
-        for neighbor in self.neighbors:
+        for neighbor in self.getNeighbors():
             if neighbor.isEmpty:
-                neighbor.setPixmap(QPixmap(self.pixmap()))
-                empty = QPixmap(40, 40)
-                empty.fill(QColor("white"))
-                self.setPixmap(empty)
-                neighbor.isEmpty = False
-                self.isEmpty = True
-                neighbor.currentPixmapName, self.\
-                    currentPixmapName = self.\
-                    currentPixmapName, neighbor.currentPixmapName
+                Xself = self.pos().x()
+                Yself = self.pos().y()
+                Xneigh = neighbor.pos().x()
+                Yneigh = neighbor.pos().y()
+                if self.perfectPos.x() == Xneigh and \
+                   self.perfectPos.y() == Yneigh:
+                    self.hasPerfectPos = True
+                else:
+                    self.hasPerfectPos = False
+                if neighbor.perfectPos.x() == Xself and \
+                   neighbor.perfectPos.y() == Yself:
+                    neighbor.hasPerfectPos = True
+                else:
+                    neighbor.hasPerfectPos = False
+                if anim:
+                    self.animation = QPropertyAnimation(self, "geometry")
+                    self.animation.setDuration(200)
+                    self.animation.setEndValue(QRect(Xneigh,
+                                                     Yneigh,
+                                                     self.width(),
+                                                     self.height()))
+                    self.animation.start()
+                else:
+                    self.move(Xneigh, Yneigh)
+                neighbor.move(Xself, Yself)
                 var = True
         return var
 
-    def checkIfPixmapFits(self):
-        if self.isEmpty:
-            return True
-        elif self.currentPixmapName[6:] == self.objectName()[5:]:
-            return True
-        else:
-            return False
+    def getNeighbors(self):
+        neighbors = []
+        x = self.pos().x()
+        y = self.pos().y()
+        if self.parent().childAt(x-1, y):
+            neighbors.append(self.parent().childAt(x-1, y))
+        if self.parent().childAt(x+41, y):
+            neighbors.append(self.parent().childAt(x+41, y))
+        if self.parent().childAt(x, y-1):
+            neighbors.append(self.parent().childAt(x, y-1))
+        if self.parent().childAt(x, y+41):
+            neighbors.append(self.parent().childAt(x, y+41))
+        return neighbors

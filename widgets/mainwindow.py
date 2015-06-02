@@ -29,7 +29,7 @@ import time
 
 from PyQt5 import uic
 from PyQt5.QtWidgets import QMainWindow, QFileDialog, QMessageBox
-from PyQt5.QtGui import QColor, QPixmap
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, QCoreApplication
 
 from utilities import getResourcesPath
@@ -45,113 +45,89 @@ class MainWindow(QMainWindow):
         self.actionShuffle.triggered.connect(self.shuffle)
         self.actionExit.triggered.connect(QCoreApplication.instance().quit)
         self.labels = self.findChildren(Tile)
-        self.pixmaps = None
+        # counter for how many moves have been done.
         self.moves = 0
+        # counter for how many seconds have passed.
         self.time = 0
+        # thread which will update the label of passed time.
         self.timer = None
-
+        # initial position of the labels is their perfect position.
         for label in self.labels:
-            digits = [int(label.objectName()[5:-1]),
-                      int(label.objectName()[6:])]
-
-            upDigits = [digits[0], digits[1] - 1]
-            downDigits = [digits[0], digits[1] + 1]
-            leftDigits = [digits[0] - 1, digits[1]]
-            rightDigits = [digits[0] + 1, digits[1]]
-
-            neighboursDigits = [upDigits, downDigits, leftDigits, rightDigits]
-            for neighboursDigit in neighboursDigits:
-                digStr = ""
-                for digit in neighboursDigit:
-                    digStr += str(digit)
-                digStr = "label" + digStr
-                child = self.findChildren(Tile, digStr)
-                if child:
-                    label.neighbors.append(child[0])
-
-    def splitPix(self, pixmap):
-        pixmap00 = pixmap.copy(0, 0, 40, 40)
-        pixmap10 = pixmap.copy(40, 0, 40, 40)
-        pixmap20 = pixmap.copy(80, 0, 40, 40)
-        pixmap30 = pixmap.copy(120, 0, 40, 40)
-        pixmap01 = pixmap.copy(0, 40, 40, 40)
-        pixmap11 = pixmap.copy(40, 40, 40, 40)
-        pixmap21 = pixmap.copy(80, 40, 40, 40)
-        pixmap31 = pixmap.copy(120, 40, 40, 40)
-        pixmap02 = pixmap.copy(0, 80, 40, 40)
-        pixmap12 = pixmap.copy(40, 80, 40, 40)
-        pixmap22 = pixmap.copy(80, 80, 40, 40)
-        pixmap32 = pixmap.copy(120, 80, 40, 40)
-        pixmap03 = pixmap.copy(0, 120, 40, 40)
-        pixmap13 = pixmap.copy(40, 120, 40, 40)
-        pixmap23 = pixmap.copy(80, 120, 40, 40)
-        pixmap33 = pixmap.copy(120, 120, 40, 40)
-        pixmaps = [("pixmap00", pixmap00), ("pixmap10", pixmap10),
-                   ("pixmap20", pixmap20), ("pixmap30", pixmap30),
-                   ("pixmap01", pixmap01), ("pixmap11", pixmap11),
-                   ("pixmap21", pixmap21), ("pixmap31", pixmap31),
-                   ("pixmap02", pixmap02), ("pixmap12", pixmap12),
-                   ("pixmap22", pixmap22), ("pixmap32", pixmap32),
-                   ("pixmap03", pixmap03), ("pixmap13", pixmap13),
-                   ("pixmap23", pixmap23), ("pixmap33", pixmap33)]
-        return pixmaps
+            label.perfectPos = label.pos()
+            label.moved.connect(self.successfulMove)
 
     def shuffle(self):
         self.stop = True
         if self.timer:
             self.timer.join()
             self.timer = None
+        # re-init game
         self.setupGame(self.pic)
 
     def setupGame(self, pic):
+        # reset time and restart timer
         self.stop = False
         self.time = 0
         self.timer = updateTimeThread(self)
         self.timer.daemon = True
         self.timer.start()
 
+        # reset moves and label of moves
         self.moves = 0
         self.labelMoves.setText(str(self.moves))
 
+        # transform the user's picture to a pixmap
         pixmap = QPixmap(pic)
-        pixmap = pixmap.scaled(160, 160)
-        self.pixmaps = self.splitPix(pixmap)
+        # scale the pixmap to fit the 160x160 game widget
+        pixmap = pixmap.scaled(160, 160,
+                               Qt.KeepAspectRatioByExpanding,
+                               Qt.SmoothTransformation)
 
-        indices = list(range(len(self.pixmaps)))
-        labelIndex = 0
-        for index in indices:
-            self.labels[labelIndex].isEmpty = False
-            self.labels[labelIndex].setPixmap(self.pixmaps[index][1])
-            self.labels[labelIndex].currentPixmapName = self.pixmaps[index][0]
-            labelIndex += 1
+        # split pixmap and assign splitted pixmaps to tiles
+        for label in self.labels:
+            label.setPixmap(pixmap.copy(label.pos().x(),
+                                        label.pos().y(),
+                                        40,
+                                        40))
 
-        pixmap = QPixmap(40, 40)
-        pixmap.fill(QColor("white"))
+        # top-left tile is empty.
         self.labels[0].isEmpty = True
-        self.labels[0].setPixmap(pixmap)
+        self.labels[0].setPixmap(QPixmap())
 
+        # allow moving of tiles
+        self.setMoveEnabled(True)
+
+        # randomize position of tiles by switching them (animations turned off)
         for i in range(200):
             index = random.choice(range(16))
-            self.labels[index].switch()
+            self.labels[index].switch(False)
+
+    def setMoveEnabled(self, bool):
+        # parameter bool (dis-)allows moving of tiles.
+        for label in self.labels:
+            label.moveEnabled = bool
 
     def loadFile(self):
+        # ask user for input of png, jpg or jpeg file.
         pic = QFileDialog.getOpenFileName(
             self,
             'Open picture',
             os.path.expanduser("~"),
             'Pictures (*.png *.jpg *.jpeg)')
+        # if user entered valid picture, start the game.
         if pic[0]:
             self.pic = pic[0]
             self.setupGame(self.pic)
 
     def checkIfWon(self):
+        # checks all tiles wether they are at the right position.
         win = True
         for label in self.labels:
-            if label.checkIfPixmapFits():
-                pass
-            else:
+            if not label.hasPerfectPos:
+                # found at least one tile at wrong position.
                 win = False
         if win:
+            # stop timer thread and display victory message.
             self.stop = True
             self.timer.join()
             self.timer = None
@@ -160,7 +136,14 @@ class MainWindow(QMainWindow):
                                     "You won! You took " + str(self.moves) +
                                     " moves and " + str(self.time) +
                                     " seconds.")
-            self.pixmaps = None
+            # disallow moving. If user wants to play again, use shuffle.
+            self.setMoveEnabled(False)
+
+    def successfulMove(self):
+        # a tile was moved. Update moves label and then check if user won.
+        self.moves += 1
+        self.labelMoves.setText(str(self.moves))
+        self.checkIfWon()
 
 
 class updateTimeThread(threading.Thread):
