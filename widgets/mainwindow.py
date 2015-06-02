@@ -56,12 +56,25 @@ class MainWindow(QMainWindow):
             label.perfectPos = label.pos()
             label.moved.connect(self.successfulMove)
 
+        # translation stuff.
+        self.labelMovesHeader.setText(self.tr("Moves"))
+        self.labelTimeHeader.setText(self.tr("Time"))
+        self.menuFile.setTitle(self.tr("File"))
+        self.actionLoadPicture.setText(self.tr("Load picture"))
+        self.actionExit.setText(self.tr("Exit"))
+        self.actionShuffle.setText(self.tr("Shuffle"))
+
     def shuffle(self):
+        if not self.pic:
+            return
         self.stop = True
         if self.timer:
             self.timer.join()
             self.timer = None
         # re-init game
+        for label in self.labels:
+            label.move(label.perfectPos)
+            label.hasPerfectPos = True
         self.setupGame(self.pic)
 
     def setupGame(self, pic):
@@ -111,9 +124,9 @@ class MainWindow(QMainWindow):
         # ask user for input of png, jpg or jpeg file.
         pic = QFileDialog.getOpenFileName(
             self,
-            'Open picture',
+            self.tr('Open picture'),
             os.path.expanduser("~"),
-            'Pictures (*.png *.jpg *.jpeg)')
+            self.tr('Pictures (*.png *.jpg *.jpeg)'))
         # if user entered valid picture, start the game.
         if pic[0]:
             self.pic = pic[0]
@@ -132,10 +145,12 @@ class MainWindow(QMainWindow):
             self.timer.join()
             self.timer = None
             QMessageBox.information(self,
-                                    "Victory!",
-                                    "You won! You took " + str(self.moves) +
-                                    " moves and " + str(self.time) +
-                                    " seconds.")
+                                    self.tr("Victory!"),
+                                    self.tr("You won! You took ") +
+                                    str(self.moves) +
+                                    self.tr(" moves and ") +
+                                    str(self.time) +
+                                    self.tr(" seconds."))
             # disallow moving. If user wants to play again, use shuffle.
             self.setMoveEnabled(False)
 

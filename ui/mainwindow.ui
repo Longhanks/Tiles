@@ -574,10 +574,16 @@
    <property name="text">
     <string>Load picture</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
+   </property>
   </action>
   <action name="actionShuffle">
    <property name="text">
     <string>Shuffle</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
    </property>
   </action>
  </widget>

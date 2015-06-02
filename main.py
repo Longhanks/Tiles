@@ -27,8 +27,10 @@ import sys
 import os
 
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import QLocale, QTranslator
 
 from widgets.mainwindow import MainWindow
+from utilities import getResourcesPath
 
 # inserting this file into sys.path to allow absolute imports in project
 sys.path.insert(0, os.path.normpath(os.path.join(
@@ -40,6 +42,17 @@ def main(argv=None):
         argv = sys.argv
 
     app = QApplication(argv)
+
+    translator = QTranslator()
+    translator.load("qt_" + QLocale.system().name(), os.path.join(
+        getResourcesPath(), "translations"))
+    app.installTranslator(translator)
+
+    myTranslator = QTranslator()
+    myTranslator.load("Tiles_" + QLocale.system().name(), os.path.join(
+        getResourcesPath(), "translations"))
+    app.installTranslator(myTranslator)
+
     window = MainWindow()
     window.show()
     return app.exec_()
